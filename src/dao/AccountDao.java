@@ -365,7 +365,7 @@ public class AccountDao {
         try {
             String sql = "select m.membername, a.balance from account a, member m, member_account ma " +
                     "where a.account_id = ma.account_id and m.member_id = ma.member_id" +
-                    "and a.accountno='739a8e92-b652-40df-bf73-76a96bb61933'";
+                    "and a.accountno=?";
             preparedStatement = connection.prepareStatement(sql);
             preparedStatement.setString(1, accountNo);
             resultSet = preparedStatement.executeQuery();

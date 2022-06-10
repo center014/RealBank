@@ -284,7 +284,8 @@ public class MainView {
     // A가 보내려는 금액이 통장에 잔고보다 적은지
     public void transferMoney(Member member) {
         Connection connection = null;
-        int resultCnt = 0;
+        int resultCntMy = 0;
+        int resultCntOther = 0;
         try {
             connection = ConnectionProvider.getConnection();
             // 내 계좌가 있는지 확인.
@@ -330,16 +331,20 @@ public class MainView {
                     // 실제로송금 진행 ( 내 계좌 - , 받는사람 계좌 + )
                     account.setBalance(account.getBalance() - money);
                     connection = ConnectionProvider.getConnection();
-                    resultCnt = AccountDao.getInstance().withDraw(select, account.getBalance(), connection);
-                    if (resultCnt > 0) {
+                    resultCntMy = AccountDao.getInstance().withDraw(select, account.getBalance(), connection);
+                    if (resultCntMy > 0) {
                         System.out.println(money + "원을 송금합니다.");
                     } else {
                         System.out.println("송금 불가");
                     }
                     // TODO 받는 사람 계좌에 금액 추가
                     connection = ConnectionProvider.getConnection();
-                    AccountDao.getInstance().transferMoney(accountNo, connection);
-
+                    resultCntOther = AccountDao.getInstance().transferMoney(accountNo, connection);
+                    if (resultCntOther > 0) {
+                        System.out.println(money + "원이 입금되었습니다.");
+                    } else {
+                        System.out.println("송금 불가.");
+                    }
                 } catch (AccountNotMoneyException e) {
                     System.out.println("해당 계좌에 잔금이 충분하지 않습니다.");
                     System.out.println(e.getMessage());
