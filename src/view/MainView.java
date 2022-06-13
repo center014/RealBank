@@ -3,6 +3,7 @@ package view;
 import dao.AccountDao;
 import dao.MemberDao;
 import dto.BalanceCheckDTO;
+import dto.TransferMoneyDTO;
 import model.Account;
 import model.Member;
 import util.ConnectionProvider;
@@ -339,7 +340,7 @@ public class MainView {
                     }
                     // TODO 받는 사람 계좌에 금액 추가
                     connection = ConnectionProvider.getConnection();
-                    resultCntOther = AccountDao.getInstance().transferMoney(accountNo, connection);
+                    resultCntOther = AccountDao.getInstance().transferWithDraw(accountNo, money, connection);
                     if (resultCntOther > 0) {
                         System.out.println(money + "원이 입금되었습니다.");
                     } else {
@@ -354,7 +355,16 @@ public class MainView {
                 }
             } else if (accountDao.checkMyAccountCount(member.getMemberId(), connection) == 1) {
                 // 계좌가 1개라면, 바로 얼마를 뺄건지 확인.
-                System.out.println("계좌 한개");
+                // TODO 계좌 1개일때 송금하는거 생성.
+                try {
+                    connection = ConnectionProvider.getConnection();
+                    List<Account> accountList = AccountDao.getInstance().selectAccountByMember(member, connection);
+                    for (Account account : accountList) {
+                        System.out.println(account);
+                    }
+                    Account account = AccountDao.getInstance().selectAccountByAccountId(account, connection);
+                    System.out.println("한개인데용");
+                }
             }
 
             // 받는사람 계좌번호의 실명 확인,.

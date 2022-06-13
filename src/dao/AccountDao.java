@@ -2,6 +2,7 @@ package dao;
 
 import dto.BalanceCheckDTO;
 import dto.TransferDTO;
+import dto.TransferMoneyDTO;
 import model.Account;
 import model.Member;
 import util.ConnectionProvider;
@@ -358,23 +359,25 @@ public class AccountDao {
     }
 
     // (7-4) 송금
-    public int transferMoney(String accountNo, Connection connection) {
+    public int transferWithDraw(String accountNo, int money, Connection connection) {
         int resultCnt = 0;
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
         try {
-            String sql = "select m.membername, a.balance from account a, member m, member_account ma " +
-                    "where a.account_id = ma.account_id and m.member_id = ma.member_id" +
-                    "and a.accountno=?";
+            String sql = "select m.membername, a.balance from account a, member m, member_account ma where a.account_id = ma.account_id and m.member_id = ma.member_id and a.accountno=?";
             preparedStatement = connection.prepareStatement(sql);
             preparedStatement.setString(1, accountNo);
             resultSet = preparedStatement.executeQuery();
-            TransferDTO transferDTO = new TransferDTO();
             if (resultSet.next()) {
-                transferDTO.setMemberName(resultSet.getString("membername"));
-                transferDTO.setBalance(resultSet.getInt("balance"));
+                TransferMoneyDTO response = new TransferMoneyDTO();
+                response.setMemberName(resultSet.getString("membername"));
+                response.setBalance(resultSet.getInt("balance") + money);
+                sql = "update account set balance=? where accountno=?";
+                preparedStatement = connection.prepareStatement(sql);
+                preparedStatement.setInt(1, response.getBalance());
+                preparedStatement.setString(2, accountNo);
+                resultCnt = preparedStatement.executeUpdate();
             }
-            System.out.println(transferDTO);
         } catch (SQLException e) {
             e.printStackTrace();
         } finally {
@@ -395,6 +398,42 @@ public class AccountDao {
         return resultCnt;
     }
 
+    // TODO 계좌 1개일때 계좌 조회하는 DAO 생성.
+    public Account selectAccountByAccountId(int accountId, Connection connection) {
+        PreparedStatement preparedStatement = null;
+        ResultSet resultSet = null;
+        Account account = null;
+        try {
+            String sql = "select * from account where account_id=?";
+            preparedStatement = connection.prepareStatement(sql);
+            preparedStatement.setLong(1, accountId);
+            resultSet = preparedStatement.executeQuery();
+            if (resultSet.next()) {
+                account = new Account();
+                account.setAccountId(resultSet.getLong("account_id"));
+                account.setAccountNo(resultSet.getString("accountno"));
+                account.setAccountPassword(resultSet.getString("accountpassword"));
+                account.setBalance(resultSet.getInt("balance"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+                if (preparedStatement != null) {
+                    preparedStatement.close();
+                }
+                if (connection != null) {
+                    connection.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return account;
+    }
 
 }
 
