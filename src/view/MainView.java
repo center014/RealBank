@@ -3,14 +3,12 @@ package view;
 import dao.AccountDao;
 import dao.MemberDao;
 import dto.BalanceCheckDTO;
+import dto.NameCheckDTO;
 import dto.TransferMoneyDTO;
 import model.Account;
 import model.Member;
 import util.ConnectionProvider;
-import view.exception.AccountNotMoneyException;
-import view.exception.NotAccountException;
-import view.exception.NotEnoughBalanceException;
-import view.exception.NotEqualsPasswordException;
+import view.exception.*;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -307,65 +305,91 @@ public class MainView {
             // 나의 어떤 계좌에서 돈을 송금? (계좌가 2개 이상일때)
             connection = ConnectionProvider.getConnection();
             if (accountDao.checkMyAccountCount(member.getMemberId(), connection) > 1) {
-                try {
-                    connection = ConnectionProvider.getConnection();
-                    List<Account> accountList = AccountDao.getInstance().selectAccountByMember(member, connection);
-                    for (Account account : accountList) {
-                        System.out.println(account);
-                    }
-                    System.out.print("어떤 계좌에서 송금하시겠습니까? : ");
-                    int select = scanner.nextInt();
 
-                    connection = ConnectionProvider.getConnection();
-                    Account account = AccountDao.getInstance().selectAccountByAccountId(select, connection);
-                    System.out.print("얼마를 송금하시겠습니까? : ");
-                    int money = scanner.nextInt();
-
-                    // 내가 보내려는 돈이 내 계좌에 충분한지 검사.
-                    if (account.getBalance() <= 0) {
-                        throw new AccountNotMoneyException("system log : account don't have money");
-                    }
-                    if (account.getBalance() < money) {
-                        throw new NotEnoughBalanceException("system log : Not enough money in account");
-                    }
-
-                    // 실제로송금 진행 ( 내 계좌 - , 받는사람 계좌 + )
-                    account.setBalance(account.getBalance() - money);
-                    connection = ConnectionProvider.getConnection();
-                    resultCntMy = AccountDao.getInstance().withDraw(select, account.getBalance(), connection);
-                    if (resultCntMy > 0) {
-                        System.out.println(money + "원을 송금합니다.");
-                    } else {
-                        System.out.println("송금 불가");
-                    }
-                    // TODO 받는 사람 계좌에 금액 추가
-                    connection = ConnectionProvider.getConnection();
-                    resultCntOther = AccountDao.getInstance().transferWithDraw(accountNo, money, connection);
-                    if (resultCntOther > 0) {
-                        System.out.println(money + "원이 입금되었습니다.");
-                    } else {
-                        System.out.println("송금 불가.");
-                    }
-                } catch (AccountNotMoneyException e) {
-                    System.out.println("해당 계좌에 잔금이 충분하지 않습니다.");
-                    System.out.println(e.getMessage());
-                } catch (NotEnoughBalanceException e) {
-                    System.out.println("송금 금액보다 잔금이 적습니다.");
-                    System.out.println(e.getMessage());
+                connection = ConnectionProvider.getConnection();
+                List<Account> accountList = AccountDao.getInstance().selectAccountByMember(member, connection);
+                for (Account account : accountList) {
+                    System.out.println(account);
                 }
-            } else if (accountDao.checkMyAccountCount(member.getMemberId(), connection) == 1) {
-                // 계좌가 1개라면, 바로 얼마를 뺄건지 확인.
-                // TODO 계좌 1개일때 송금하는거 생성.
-                try {
-                    connection = ConnectionProvider.getConnection();
-                    List<Account> accountList = AccountDao.getInstance().selectAccountByMember(member, connection);
-                    for (Account account : accountList) {
-                        System.out.println(account);
-                    }
-                    Account account = AccountDao.getInstance().selectAccountByAccountId(account, connection);
-                    System.out.println("한개인데용");
+                System.out.print("어떤 계좌에서 송금하시겠습니까? : ");
+                int select = scanner.nextInt();
+
+                connection = ConnectionProvider.getConnection();
+                Account account = AccountDao.getInstance().selectAccountByAccountId(select, connection);
+                System.out.print("얼마를 송금하시겠습니까? : ");
+                int money = scanner.nextInt();
+                if (account.getBalance() <= 0) {
+                    throw new AccountNotMoneyException("system log : account don't have money");
+                }
+                if (account.getBalance() < money) {
+                    throw new NotEnoughBalanceException("system log : Not enough money in account");
+                }
+
+                // 송금대상 계좌 이름 확인.
+                // TODO : 이름이 맞지 않다고 나옴....
+                System.out.print("송금 계좌 대상 이름 : ");
+                String memberName = scanner.next();
+                connection = ConnectionProvider.getConnection();
+                List<NameCheckDTO> nameCheckDTOList = AccountDao.getInstance().checkName(accountNo, connection);
+                System.out.println(nameCheckDTOList);
+                String name = String.valueOf(nameCheckDTOList);
+                if (!name.equals(memberName)) {
+                    throw new NameNotMatch("system log : Name not matching,,,,");
+                }
+
+                // 실제로송금 진행 ( 내 계좌 - , 받는사람 계좌 + )
+                account.setBalance(account.getBalance() - money);
+                connection = ConnectionProvider.getConnection();
+                resultCntMy = AccountDao.getInstance().withDraw(select, account.getBalance(), connection);
+                if (resultCntMy > 0) {
+                    System.out.println(money + "원을 송금합니다.");
+                } else {
+                    System.out.println("송금 불가");
+                }
+                // TODO 받는 사람 계좌에 금액 추가
+                connection = ConnectionProvider.getConnection();
+                resultCntOther = AccountDao.getInstance().transferWithDraw(accountNo, money, connection);
+                if (resultCntOther > 0) {
+                    System.out.println(money + "원이 입금되었습니다.");
+                } else {
+                    System.out.println("송금 불가.");
                 }
             }
+            connection = ConnectionProvider.getConnection();
+            if (accountDao.checkMyAccountCount(member.getMemberId(), connection) == 1) {
+                // 계좌가 1개라면, 바로 얼마를 뺄건지 확인.
+                // TODO 계좌 1개일때 송금하는거 생성.
+                connection = ConnectionProvider.getConnection();
+                int accountId = Math.toIntExact(member.getMemberId());
+                Account account = AccountDao.getInstance().selectAccountByAccountId(accountId, connection);
+                System.out.print("송금 금액 : ");
+                int money = scanner.nextInt();
+                if (account.getBalance() <= 0) {
+                    throw new AccountNotMoneyException("system log : Account don't have money");
+                }
+                if (account.getBalance() < money) {
+                    throw new NotEnoughBalanceException("system log : Not enough money in bank");
+                }
+                // 실제로송금 진행 ( 내 계좌 - , 받는사람 계좌 + )
+                account.setBalance(account.getBalance() - money);
+                System.out.println("송금 계좌 잔액 : " + account.getBalance());
+                connection = ConnectionProvider.getConnection();
+                resultCntMy = AccountDao.getInstance().withDrawSecond(account.getAccountNo(), account.getBalance(), connection);
+                if (resultCntMy > 0) {
+                    System.out.println(money + "원을 송금하셨습니다.");
+                } else {
+                    System.out.println("송금에 실패하셨습니다.");
+                }
+                // TODO 잘되다가 행 걸리는듯???
+//                connection = ConnectionProvider.getConnection();
+//                resultCntOther = AccountDao.getInstance().transferWithDraw(accountNo, money, connection);
+//                if (resultCntOther > 0) {
+//                    System.out.println(money + "원이 입금되었습니다");
+//                } else {
+//                    System.out.println("안들어왔어!!!!");
+//                }
+            }
+
 
             // 받는사람 계좌번호의 실명 확인,.
 
@@ -373,6 +397,15 @@ public class MainView {
             e.printStackTrace();
         } catch (NotAccountException e) {
             System.out.println("해당 계좌가 존재하지 않습니다.");
+            System.out.println(e.getMessage());
+        } catch (AccountNotMoneyException e) {
+            System.out.println("해당 계좌의 잔금이 충분하지 않습니다.");
+            System.out.println(e.getMessage());
+        } catch (NotEnoughBalanceException e) {
+            System.out.println("송금 금액보다 잔금이 적습니다.");
+            System.out.println(e.getMessage());
+        } catch (NameNotMatch e) {
+            System.out.println("이름이 맞지 않습니다.");
             System.out.println(e.getMessage());
         } finally {
             loginMenu(member);

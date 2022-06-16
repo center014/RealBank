@@ -1,6 +1,7 @@
 package dao;
 
 import dto.BalanceCheckDTO;
+import dto.NameCheckDTO;
 import dto.TransferDTO;
 import dto.TransferMoneyDTO;
 import model.Account;
@@ -224,6 +225,33 @@ public class AccountDao {
         return resultCnt;
     }
 
+    // (5-2) 출금
+    public int withDrawSecond(String accountNo, int balance, Connection connection) {
+        int resultCnt = 0;
+        PreparedStatement preparedStatement = null;
+        try {
+            String sql = "update account set balance=? where accountno=?";
+            preparedStatement = connection.prepareStatement(sql);
+            preparedStatement.setInt(1, balance);
+            preparedStatement.setString(2, accountNo);
+            resultCnt = preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (preparedStatement != null) {
+                    preparedStatement.close();
+                }
+                if (connection != null) {
+                    connection.close();
+                }
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return resultCnt;
+    }
+
     // (6-1) 잔액 조회
     public List<BalanceCheckDTO> balanceCheck(int select, Connection connection) {
         ResultSet resultSet = null;
@@ -398,22 +426,19 @@ public class AccountDao {
         return resultCnt;
     }
 
-    // TODO 계좌 1개일때 계좌 조회하는 DAO 생성.
-    public Account selectAccountByAccountId(int accountId, Connection connection) {
+    // (7-5) 송금시 상대방 계좌(이름) 확인
+    public List<NameCheckDTO> checkName(String accountNo, Connection connection) {
         PreparedStatement preparedStatement = null;
         ResultSet resultSet = null;
-        Account account = null;
+        List<NameCheckDTO> nameCheckDTOList = new ArrayList<>();
         try {
-            String sql = "select * from account where account_id=?";
+            String sql = "select m.membername from account a, member m, member_account ma where a.account_id = ma.account_id and m.member_id = ma.member_id and a.accountno=?";
             preparedStatement = connection.prepareStatement(sql);
-            preparedStatement.setLong(1, accountId);
+            preparedStatement.setString(1, accountNo);
             resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
-                account = new Account();
-                account.setAccountId(resultSet.getLong("account_id"));
-                account.setAccountNo(resultSet.getString("accountno"));
-                account.setAccountPassword(resultSet.getString("accountpassword"));
-                account.setBalance(resultSet.getInt("balance"));
+                NameCheckDTO response = new NameCheckDTO(resultSet.getString("membername"));
+                nameCheckDTOList.add(response);
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -432,7 +457,7 @@ public class AccountDao {
                 e.printStackTrace();
             }
         }
-        return account;
+        return nameCheckDTOList;
     }
 
 }
